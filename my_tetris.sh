@@ -13,6 +13,11 @@ DELAY_FACTOR=0.8 # this value controld delay decrease for each level up
 empty_cell=" ."  # how we draw empty cell
 filled_cell="[]" # how we draw filled cell
 
+PLAYFIELD_W=10
+PLAYFIELD_H=20
+PLAYFIELD_X=30
+PLAYFIELD_Y=1
+
 # screen_buffer is variable, that accumulates all screen changes
 # this variable is printed in controller once per game cycle
 puts() {
@@ -29,6 +34,10 @@ set_foreground() {
 
 set_background() {
     puts "\033[4${1}m"
+}
+
+reset_colors() {
+    puts "\033[0m"
 }
 
 show_cursor() {
@@ -63,10 +72,32 @@ draw_piece() {
   # loop through piece cells: 4 cells, each has 2 coordinates
   for ((i = 0; i < 8; i += 2)) {
       # relative coordinates are retrieved based on orientation and added to absolute coordinates
+      # reference: 3.5.3 shell parameter expansion, ${parameter:offset:length}
+      # reference: 3.5.5 arithmetic expansion, $((expression))
       ((x = $1 + ${piece[$3]:$((i + $4 * 8 + 1)):1} * 2))
       ((y = $2 + ${piece[$3]:$((i + $4 * 8)):1}))
       xyprint $x $y "$5"
   }
+}
+
+
+current_piece_x=0
+current_piece_y=0
+current_piece=0
+current_piece_rotation=0
+# Arguments:
+#   1-string to draw single cell
+draw_current() {
+  # factor 2 for x because each cell is 2 characters wide
+  draw_piece $((current_piece_x * 2 + PLAYFIELD_X)) $((current_piece_y + PLAYFIELD_Y)) $current_piece $current_piece_rotation "$1"
+}
+
+current_piece_color=0
+show_current() {
+  set_foreground $current_piece_color
+  set_background $current_piece_color
+  draw_current "${filled_cell}"
+  reset_colors
 }
 
 init() {
@@ -120,4 +151,7 @@ controller() {
 }
 
 # "&" means ticker runs as separate process
-(ticker & reader) | controller
+# (ticker & reader) | controller
+init
+show_current
+echo -e "$screen_buffer"
