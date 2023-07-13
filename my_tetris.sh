@@ -157,3 +157,5 @@ controller() {
 init
 show_current
 echo -e "$screen_buffer"
+
+show_cursor
