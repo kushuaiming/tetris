@@ -73,12 +73,12 @@ draw_piece() {
 
   # loop through piece cells: 4 cells, each has 2 coordinates
   for ((i = 0; i < 8; i += 2)) {
-      # relative coordinates are retrieved based on orientation and added to absolute coordinates
-      # reference: 3.5.3 shell parameter expansion, ${parameter:offset:length}
-      # reference: 3.5.5 arithmetic expansion, $((expression))
-      ((x = $1 + ${piece[$3]:$((i + $4 * 8 + 1)):1} * 2))
-      ((y = $2 + ${piece[$3]:$((i + $4 * 8)):1}))
-      xyprint $x $y "$5"
+    # relative coordinates are retrieved based on orientation and added to absolute coordinates
+    # reference: 3.5.3 shell parameter expansion, ${parameter:offset:length}
+    # reference: 3.5.5 arithmetic expansion, $((expression))
+    ((x = $1 + ${piece[$3]:$((i + $4 * 8 + 1)):1} * 2))
+    ((y = $2 + ${piece[$3]:$((i + $4 * 8)):1}))
+    xyprint $x $y "$5"
   }
 }
 
