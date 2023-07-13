@@ -19,35 +19,37 @@ PLAYFIELD_X=30
 PLAYFIELD_Y=1
 
 # screen_buffer is variable, that accumulates all screen changes
-# this variable is printed in controller once per game cycle
+# this variable is printed in controller once per game cycle.
 puts() {
-  screen_buffer+=${1}
+  screen_buffer+=$1
 }
 
+# reference: https://en.wikipedia.org/wiki/ANSI_escape_code#CSIsection Cursor Position
+readonly CSI='\033[' # Control Sequence Introducer
 xyprint() {
-    puts "\033[${2};${1}H${3}"
+  puts "${CSI}${2};${1}H${3}"
 }
 
 set_foreground() {
-    puts "\033[3${1}m"
+  puts "${CSI}3${1}m"
 }
 
 set_background() {
-    puts "\033[4${1}m"
+  puts "${CSI}4${1}m"
 }
 
 reset_colors() {
-    puts "\033[0m"
+  puts "${CSI}0m"
 }
 
 show_cursor() {
-    echo -ne "\033[?25h"
+  echo -ne "${CSI}?25h"
 }
 
 hide_cursor() {
   # "echo -n" means do not output the trailing newline.
   # "echo -e" means enable interpretation of backslash escapes
-  echo -ne "\033[?25l"
+  echo -ne "${CSI}?25l"
 }
 
 # this array holds all possible pieces that can be used in the game
