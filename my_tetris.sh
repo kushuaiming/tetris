@@ -12,11 +12,16 @@ DELAY_FACTOR=0.8 # this value controld delay decrease for each level up
 
 empty_cell=" ."  # how we draw empty cell
 filled_cell="[]" # how we draw filled cell
+showtime=true    # controller runs while this flag is true
 
-PLAYFIELD_W=10
-PLAYFIELD_H=20
-PLAYFIELD_X=30
-PLAYFIELD_Y=1
+readonly PLAYFIELD_W=10
+readonly PLAYFIELD_H=20
+readonly PLAYFIELD_X=30
+readonly PLAYFIELD_Y=1
+
+# Location of "game over" in the end of the game
+readonly GAMEOVER_X=1
+readonly GAMEOVER_Y=$((PLAYFIELD_H + 3))
 
 # screen_buffer is variable, that accumulates all screen changes
 # this variable is printed in controller once per game cycle.
@@ -26,6 +31,8 @@ puts() {
 
 # reference: https://en.wikipedia.org/wiki/ANSI_escape_code#CSIsection Cursor Position
 readonly CSI='\033[' # Control Sequence Introducer
+# Moves the cursor to row n, column m.
+# m, n, cell content
 xyprint() {
   puts "${CSI}${2};${1}H${3}"
 }
@@ -128,8 +135,66 @@ reader() {
   done
 }
 
+# Move the piece to the new location if possible.
+# Arguments:
+#   new x coordinate, new y coordinate
+move_piece() {
+    if new_piece_location_ok $1 $2 ; then # if new location is ok
+        clear_current                     # let's wipe out piece current location
+        current_piece_x=$1                # update x ...
+        current_piece_y=$2                # ... and y of new location
+        show_current                      # and draw piece in new location
+        return 0                          # nothing more to do here
+    fi                                    # if we could not move piece to new location
+    (($2 == current_piece_y)) && return 0 # and this was not horizontal move
+    process_fallen_piece                  # let's finalize this piece
+    get_random_next                       # and start the new one
+    return 1
+}
+
+cmd_quit() {
+    showtime=false                   # let's stop controller ...
+    pkill -SIGUSR2 -f "/bin/bash $0" # ... send SIGUSR2 to all script instances to stop forked processes ...
+    xyprint $GAMEOVER_X $GAMEOVER_Y "GAME OVER"
+    echo -e "$screen_buffer"         # ... and print final message
+}
+
+cmd_right() {
+    move_piece $((current_piece_x + 1)) $current_piece_y
+}
+
+cmd_left() {
+    move_piece $((current_piece_x - 1)) $current_piece_y
+}
+
+cmd_rotate() {
+    local available_rotations old_rotation new_rotation
+
+    available_rotations=$((${#piece[$current_piece]} / 8))            # number of orientations for this piece
+    old_rotation=$current_piece_rotation                              # preserve current orientation
+    new_rotation=$(((old_rotation + 1) % available_rotations))        # calculate new orientation
+    current_piece_rotation=$new_rotation                              # set orientation to new
+    if new_piece_location_ok $current_piece_x $current_piece_y ; then # check if new orientation is ok
+        current_piece_rotation=$old_rotation                          # if yes - restore old orientation
+        clear_current                                                 # clear piece image
+        current_piece_rotation=$new_rotation                          # set new orientation
+        show_current                                                  # draw piece with new orientation
+    else                                                              # if new orientation is not ok
+        current_piece_rotation=$old_rotation                          # restore old orientation
+    fi
+}
+
 cmd_down() {
-  xyprint 0 0 $filled_cell
+    move_piece $current_piece_x $((current_piece_y + 1))
+}
+
+cmd_drop() {
+    # move piece all way down
+    # this is example of do..while loop in bash
+    # loop body is empty
+    # loop condition is done at least once
+    # loop runs until loop condition would return non zero exit code
+    while move_piece $current_piece_x $((current_piece_y + 1)) ; do : ; done
 }
 
 controller() {
@@ -152,6 +217,8 @@ controller() {
   done
 }
 
+stty_g=`stty -g` # save terminal state
+
 # "&" means ticker runs as separate process
 # (ticker & reader) | controller
 init
@@ -159,3 +226,4 @@ show_current
 echo -e "$screen_buffer"
 
 show_cursor
+stty $stty_g # restore terminal state
