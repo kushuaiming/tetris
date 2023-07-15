@@ -94,38 +94,38 @@ puts() {
     screen_buffer+=${1}
 }
 
+# reference: https://en.wikipedia.org/wiki/ANSI_escape_code#CSIsection Cursor Position
+readonly CSI='\033[' # Control Sequence Introducer
 # move cursor to (x,y) and print string
 # (1,1) is upper left corner of the screen
 xyprint() {
-    puts "\033[${2};${1}H${3}"
+    puts "${CSI}${2};${1}H${3}"
 }
 
 show_cursor() {
-    echo -ne "\033[?25h"
+    echo -ne "${CSI}?25h"
 }
 
 hide_cursor() {
-    echo -ne "\033[?25l"
+    echo -ne "${CSI}?25l"
 }
 
-# foreground color
-set_fg() {
+set_foreground_color() {
     $no_color && return
-    puts "\033[3${1}m"
+    puts "${CSI}3${1}m"
 }
 
-# background color
-set_bg() {
+set_background_color() {
     $no_color && return
-    puts "\033[4${1}m"
+    puts "${CSI}4${1}m"
 }
 
 reset_colors() {
-    puts "\033[0m"
+    puts "${CSI}0m"
 }
 
 set_bold() {
-    puts "\033[1m"
+    puts "${CSI}1m"
 }
 
 # playfield is 1-dimensional array, data is stored as follows:
@@ -146,8 +146,8 @@ redraw_playfield() {
             if ((${play_field[$j]} == -1)) ; then
                 puts "$empty_cell"
             else
-                set_fg ${play_field[$j]}
-                set_bg ${play_field[$j]}
+                set_foreground_color ${play_field[$j]}
+                set_background_color ${play_field[$j]}
                 puts "$filled_cell"
                 reset_colors
             fi
@@ -167,7 +167,7 @@ update_score() {
         pkill -SIGUSR1 -f "/bin/bash $0" # and send SIGUSR1 signal to all instances of this script (please see ticker for more details)
     fi
     set_bold
-    set_fg $SCORE_COLOR
+    set_foreground_color $SCORE_COLOR
     xyprint $SCORE_X $SCORE_Y         "Lines completed: $lines_completed"
     xyprint $SCORE_X $((SCORE_Y + 1)) "Level:           $level"
     xyprint $SCORE_X $((SCORE_Y + 2)) "Score:           $score"
@@ -192,7 +192,7 @@ toggle_help() {
     local i s
 
     set_bold
-    set_fg $HELP_COLOR
+    set_foreground_color $HELP_COLOR
     for ((i = 0; i < ${#help[@]}; i++ )) {
         # ternary assignment: if help_on is 1 use string as is, otherwise substitute all characters with spaces
         ((help_on == 1)) && s="${help[i]}" || s="${help[i]//?/ }"
@@ -224,6 +224,8 @@ draw_piece() {
     # loop through piece cells: 4 cells, each has 2 coordinates
     for ((i = 0; i < 8; i += 2)) {
         # relative coordinates are retrieved based on orientation and added to absolute coordinates
+        # reference: 3.5.3 shell parameter expansion, ${parameter:offset:length}
+        # reference: 3.5.5 arithmetic expansion, $((expression))
         ((x = $1 + ${piece[$3]:$((i + $4 * 8 + 1)):1} * 2))
         ((y = $2 + ${piece[$3]:$((i + $4 * 8)):1}))
         xyprint $x $y "$5"
@@ -247,8 +249,8 @@ clear_next() {
 }
 
 show_next() {
-    set_fg $next_piece_color
-    set_bg $next_piece_color
+    set_foreground_color $next_piece_color
+    set_background_color $next_piece_color
     draw_next "${filled_cell}"
     reset_colors
 }
@@ -267,8 +269,8 @@ draw_current() {
 }
 
 show_current() {
-    set_fg $current_piece_color
-    set_bg $current_piece_color
+    set_foreground_color $current_piece_color
+    set_background_color $current_piece_color
     draw_current "${filled_cell}"
     reset_colors
 }
@@ -315,7 +317,7 @@ draw_border() {
     local i x1 x2 y
 
     set_bold
-    set_fg $BORDER_COLOR
+    set_foreground_color $BORDER_COLOR
     ((x1 = PLAYFIELD_X - 2))               # 2 here is because border is 2 characters thick
     ((x2 = PLAYFIELD_X + PLAYFIELD_W * 2)) # 2 here is because each cell on play field is 2 characters wide
     for ((i = 0; i < PLAYFIELD_H + 1; i++)) {
@@ -372,24 +374,29 @@ ticker() {
 
 # this function processes keyboard input
 reader() {
-    trap exit SIGUSR2 # this process exits on SIGUSR2
-    trap '' SIGUSR1   # SIGUSR1 is ignored
-    local -u key a='' b='' cmd esc_ch=$'\x1b'
-    # commands is associative array, which maps pressed keys to commands, sent to controller
-    declare -A commands=([A]=$ROTATE [C]=$RIGHT [D]=$LEFT
-        [_S]=$ROTATE [_A]=$LEFT [_D]=$RIGHT
-        [_]=$DROP [_Q]=$QUIT [_H]=$TOGGLE_HELP [_N]=$TOGGLE_NEXT [_C]=$TOGGLE_COLOR)
-
-    while read -s -n 1 key ; do
-        case "$a$b$key" in
-            "${esc_ch}["[ACD]) cmd=${commands[$key]} ;; # cursor key
-            *${esc_ch}${esc_ch}) cmd=$QUIT ;;           # exit on 2 escapes
-            *) cmd=${commands[_$key]:-} ;;              # regular key. If space was pressed $key is empty
-        esac
-        a=$b   # preserve previous keys
-        b=$key
-        [ -n "$cmd" ] && echo -n "$cmd"
-    done
+  trap exit SIGUSR2 # this process exits on SIGUSR2
+  trap '' SIGUSR1   # SIGUSR1 is ignored
+  # "local -u" means when the variable is assigned a value,
+  # all lower-case characters are converted to upper-case.
+  local -u key a='' b='' cmd esc_ch=$'\x1b'
+  # "declare -a name" means each name is an indexed array variable.
+  # "declare -A name" means each name is an associative array variable.
+  # commands is associative array, which maps pressed keys to commands, sent to controller
+  declare -A commands=([A]=$ROTATE [C]=$RIGHT [D]=$LEFT
+      [_S]=$ROTATE [_A]=$LEFT [_D]=$RIGHT
+      [_]=$DROP [_Q]=$QUIT [_H]=$TOGGLE_HELP [_N]=$TOGGLE_NEXT [_C]=$TOGGLE_COLOR)
+  # "read -s" means read in silent mode.
+  # "read -n" num means read only num's characters of input.
+  while read -s -n 1 key ; do
+      case "$a$b$key" in
+          "${esc_ch}["[ACD]) cmd=${commands[$key]} ;; # cursor key
+          *${esc_ch}${esc_ch}) cmd=$QUIT ;;           # exit on 2 escapes
+          *) cmd=${commands[_$key]:-} ;;              # regular key. If space was pressed $key is empty
+      esac
+      a=$b   # preserve previous keys
+      b=$key
+      [ -n "$cmd" ] && echo -n "$cmd"
+  done
 }
 
 # this function updates occupied cells in play_field array after piece is dropped
@@ -496,7 +503,7 @@ cmd_quit() {
 controller() {
     # SIGUSR1 and SIGUSR2 are ignored
     trap '' SIGUSR1 SIGUSR2
-    local cmd commands
+    local command commands
 
     # initialization of commands array with appropriate functions
     commands[$QUIT]=cmd_quit
@@ -509,17 +516,17 @@ controller() {
     commands[$TOGGLE_NEXT]=toggle_next
     commands[$TOGGLE_COLOR]=toggle_color
 
-    init
-
     while $showtime; do           # run while showtime variable is true, it is changed to false in cmd_quit function
         echo -ne "$screen_buffer" # output screen buffer ...
         screen_buffer=""          # ... and reset it
-        read -s -n 1 cmd          # read next command from stdout
-        ${commands[$cmd]}         # run command
+        read -s -n 1 command          # read next command from stdout
+        ${commands[$command]}         # run command
     done
 }
 
 stty_g=`stty -g` # let's save terminal state
+
+init
 
 # output of ticker and reader is joined and piped into controller
 (
