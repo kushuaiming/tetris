@@ -207,12 +207,12 @@ toggle_help() {
 # each string is sequence of relative xy coordinates for different orientations
 # depending on piece symmetry there can be 1, 2 or 4 orientations
 piece=(
-"00011011"                         # square piece
-"0212223210111213"                 # line piece
+"00011011"                         # O piece
+"0212223210111213"                 # I piece
 "0001111201101120"                 # S piece
 "0102101100101121"                 # Z piece
 "01021121101112220111202100101112" # L piece
-"01112122101112200001112102101112" # inverted L piece
+"01112122101112200001112102101112" # J piece
 "01111221101112210110112101101112" # T piece
 )
 
@@ -245,7 +245,8 @@ draw_next() {
 }
 
 clear_next() {
-    draw_next "${filled_cell//?/ }"
+  # ${parameter//pattern/string}
+  draw_next "${filled_cell//?/ }"
 }
 
 show_next() {
@@ -258,12 +259,13 @@ show_next() {
 toggle_next() {
     case $next_on in
         1) clear_next; next_on=-1 ;;
-        -1) next_on=1; show_next ;;
+       -1) next_on=1; show_next ;;
     esac
 }
 
+# Arguments:
+#   1 - string to draw single cell
 draw_current() {
-    # Arguments: 1 - string to draw single cell
     # factor 2 for x because each cell is 2 characters wide
     draw_piece $((current_piece_x * 2 + PLAYFIELD_X)) $((current_piece_y + PLAYFIELD_Y)) $current_piece $current_piece_rotation "$1"
 }
