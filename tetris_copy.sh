@@ -54,7 +54,7 @@ PLAYFIELD_W=10
 PLAYFIELD_H=20
 PLAYFIELD_X=30
 PLAYFIELD_Y=1
-BORDER_COLOR=$YELLOW
+BORDER_COLOR=$WHITE
 
 # Location and color of score information
 SCORE_X=1
@@ -320,19 +320,18 @@ draw_border() {
 
     set_bold
     set_foreground_color $BORDER_COLOR
-    ((x1 = PLAYFIELD_X - 2))               # 2 here is because border is 2 characters thick
+    ((x1 = PLAYFIELD_X - 1))               # 1 here is because border is 1 characters thick
     ((x2 = PLAYFIELD_X + PLAYFIELD_W * 2)) # 2 here is because each cell on play field is 2 characters wide
     for ((i = 0; i < PLAYFIELD_H + 1; i++)) {
         ((y = i + PLAYFIELD_Y))
-        xyprint $x1 $y "<|"
-        xyprint $x2 $y "|>"
+        xyprint $x1 $y "|"
+        xyprint $x2 $y "|"
     }
 
     ((y = PLAYFIELD_Y + PLAYFIELD_H))
     for ((i = 0; i < PLAYFIELD_W; i++)) {
         ((x1 = i * 2 + PLAYFIELD_X)) # 2 here is because each cell on play field is 2 characters wide
         xyprint $x1 $y '=='
-        xyprint $x1 $((y + 1)) "\/"
     }
     reset_colors
 }
