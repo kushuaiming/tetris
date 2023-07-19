@@ -109,6 +109,43 @@ show_current() {
   reset_colors
 }
 
+get_random_next() {
+    # next piece becomes current
+    current_piece=$next_piece
+    current_piece_rotation=$next_piece_rotation
+    current_piece_color=$next_piece_color
+    # place current at the top of play field, approximately at the center
+    ((current_piece_x = (PLAYFIELD_W - 4) / 2))
+    ((current_piece_y = 0))
+    # check if piece can be placed at this location, if not - game over
+    new_piece_location_ok $current_piece_x $current_piece_y || cmd_quit
+    show_current
+
+    clear_next
+    # now let's get next piece
+    ((next_piece = RANDOM % ${#piece[@]}))
+    ((next_piece_rotation = RANDOM % (${#piece[$next_piece]} / 8)))
+    ((next_piece_color = RANDOM % ${#colors[@]}))
+    show_next
+}
+
+# Move the piece to the new location if possible.
+# Arguments:
+#   new x coordinate, new y coordinate
+move_piece() {
+    if new_piece_location_ok $1 $2 ; then # if new location is ok
+        clear_current                     # let's wipe out piece current location
+        current_piece_x=$1                # update x ...
+        current_piece_y=$2                # ... and y of new location
+        show_current                      # and draw piece in new location
+        return 0                          # nothing more to do here
+    fi                                    # if we could not move piece to new location
+    (($2 == current_piece_y)) && return 0 # and this was not horizontal move
+    process_fallen_piece                  # let's finalize this piece
+    get_random_next                       # and start the new one
+    return 1
+}
+
 init() {
   clear
   hide_cursor
@@ -133,23 +170,6 @@ reader() {
   while read -s -n 1 key; do
     echo -n $key
   done
-}
-
-# Move the piece to the new location if possible.
-# Arguments:
-#   new x coordinate, new y coordinate
-move_piece() {
-    if new_piece_location_ok $1 $2 ; then # if new location is ok
-        clear_current                     # let's wipe out piece current location
-        current_piece_x=$1                # update x ...
-        current_piece_y=$2                # ... and y of new location
-        show_current                      # and draw piece in new location
-        return 0                          # nothing more to do here
-    fi                                    # if we could not move piece to new location
-    (($2 == current_piece_y)) && return 0 # and this was not horizontal move
-    process_fallen_piece                  # let's finalize this piece
-    get_random_next                       # and start the new one
-    return 1
 }
 
 cmd_quit() {
@@ -209,7 +229,7 @@ controller() {
   commands[$TOGGLE_HELP]=toggle_help
   commands[$TOGGLE_NEXT]=toggle_next
   commands[$TOGGLE_COLOR]=toggle_color
-  while true; do
+  while $showtime; do
     echo -ne "$screen_buffer" # output screen buffer ...
     screen_buffer=""          # ... and reset it
     read -s -n 1 command      # read next command from stdout
@@ -219,11 +239,14 @@ controller() {
 
 stty_g=`stty -g` # save terminal state
 
+# output of ticker and reader is joined and piped into controller
 # "&" means ticker runs as separate process
-# (ticker & reader) | controller
-init
-show_current
-echo -e "$screen_buffer"
+(
+  ticker &
+  reader
+)|(
+  controller
+)
 
 show_cursor
 stty $stty_g # restore terminal state
