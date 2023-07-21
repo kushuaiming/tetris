@@ -1,0 +1,3 @@
+RANDOM
+echo $RANDOM
+echo $RANDOM
